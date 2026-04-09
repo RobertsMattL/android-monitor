@@ -238,7 +238,7 @@ class AndroidMonitor {
     // CPU Gauge (left)
     const cpuGauge = grid.set(2, 0, 3, 3, contrib.gauge, {
       label: ' CPU Usage ',
-      stroke: 'green',
+      stroke: 'cyan',
       fill: 'white',
       border: {
         type: 'line',
@@ -331,14 +331,17 @@ class AndroidMonitor {
     const cpu = this.currentStats.cpu;
     cpuGauge.setPercent(Math.min(cpu, 100));
 
-    // Change gauge color based on CPU usage
+    // Update gauge label with color-coded status
+    let statusColor = 'green';
+    let status = 'Normal';
     if (cpu > 80) {
-      cpuGauge.setOptions({ stroke: 'red' });
+      statusColor = 'red';
+      status = 'High';
     } else if (cpu > 50) {
-      cpuGauge.setOptions({ stroke: 'yellow' });
-    } else {
-      cpuGauge.setOptions({ stroke: 'green' });
+      statusColor = 'yellow';
+      status = 'Elevated';
     }
+    cpuGauge.setLabel(` CPU Usage - ${cpu.toFixed(1)}% (${status}) `);
 
     // Update memory stats box
     const mem = this.currentStats.memory;

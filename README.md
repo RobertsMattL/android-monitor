@@ -1,15 +1,18 @@
 # Android Monitor
 
-A real-time CLI monitoring tool for Android app CPU and memory usage.
+A real-time Terminal UI (TUI) monitoring tool for Android app CPU and memory usage with live charts and gauges.
 
 ## Features
 
-- 📊 Real-time CPU usage monitoring
-- 💾 Comprehensive memory statistics (PSS, Private Dirty/Clean, Native/Dalvik Heap)
-- 🎨 Color-coded output for easy reading
-- 🔄 Configurable refresh intervals
-- 📱 Support for multiple devices
-- 🧵 Thread count tracking
+- 📊 **Real-time CPU gauge** - Visual gauge showing current CPU usage with color-coded alerts
+- 📈 **Historical CPU chart** - Line chart tracking CPU usage over time
+- 💾 **Memory tracking** - Multi-line chart showing Total PSS, Private Dirty, Native Heap, and Dalvik Heap trends
+- 📉 **Memory statistics panel** - Current memory values in an easy-to-read format
+- 🎨 **Rich Terminal UI** - Beautiful blessed-based interface with multiple panels
+- 🔄 **Configurable refresh intervals** - Adjust monitoring frequency
+- 📱 **Support for multiple devices** - Monitor any connected Android device
+- 🧵 **Thread count tracking** - Monitor active thread count
+- 📊 **60-point history** - Keeps last 60 data points for trend analysis
 
 ## Installation
 
@@ -55,34 +58,59 @@ npm start -- -p <package> [-d <device-id>] [-i <interval-ms>]
 - `-d, --device <id>` - Device ID (optional, uses default if not specified)
 - `-i, --interval <ms>` - Refresh interval in milliseconds (default: 2000, min: 500)
 
-## Example Output
+## Interface Layout
+
+The monitor displays a rich terminal UI with multiple panels:
 
 ```
-═══════════════════════════════════════════════════════════════
-              ANDROID APP PERFORMANCE MONITOR
-═══════════════════════════════════════════════════════════════
+┌─ Device Info ────────────────────────────────────────────────┐
+│ Device:   RFCN901AZVL                                         │
+│ Package:  com.atakmap.app.civ                                 │
+│ PID:      12345                                               │
+│ Threads:  42                                                  │
+│ Time:     2:30:45 PM                                          │
+└───────────────────────────────────────────────────────────────┘
 
-Device:      RFCN901AZVL
-Package:     com.atakmap.app.civ
-PID:         12345
-Threads:     42
-Time:        2:30:45 PM
+┌─ CPU Usage ──┐ ┌─ Memory Stats ───┐ ┌─ CPU History (%) ─────┐
+│              │ │ Total PSS: 246MB │ │                        │
+│      15%     │ │ Private Dirty:   │ │   ╱╲    ╱╲            │
+│   ████░░░░   │ │   189 MB         │ │  ╱  ╲  ╱  ╲   ╱╲      │
+│              │ │ Private Clean:   │ │ ╱    ╲╱    ╲ ╱  ╲     │
+│              │ │   45 MB          │ │╱            ╲    ╲    │
+│              │ │ Native Heap:     │ └────────────────────────┘
+│              │ │   78 MB          │
+│              │ │ Dalvik Heap:     │
+│              │ │   68 MB          │
+└──────────────┘ └──────────────────┘
 
-───────────────────────────────────────────────────────────────
+┌─ Memory History (MB) ──────────────────────────────────────┐
+│ ─ Total PSS     ─ Private Dirty  ─ Native Heap            │
+│ ─ Dalvik Heap                                              │
+│                                                             │
+│ 300┤                         ╭─ Total PSS                  │
+│ 250┤                    ╭────╯                             │
+│ 200┤              ╭─────╯    ╭─ Private Dirty             │
+│ 150┤         ╭────╯     ╭────╯                             │
+│ 100┤    ╭────╯      ╭───╯  ╭─ Native Heap                 │
+│  50┤────╯       ────╯  ────╯─ Dalvik Heap                 │
+│   0┤────────────────────────────────────────────────       │
+│    10:30      10:31      10:32      10:33                  │
+└─────────────────────────────────────────────────────────────┘
 
-📊 CPU USAGE
-  Usage:       15.2%
-
-💾 MEMORY USAGE
-  Total PSS:        245.67 MB
-  Private Dirty:    189.32 MB
-  Private Clean:    45.12 MB
-  Native Heap:      78.45 MB
-  Dalvik Heap:      67.89 MB
-
-═══════════════════════════════════════════════════════════════
-Refreshing every 2s... (Ctrl+C to stop)
+Press q, Esc, or Ctrl+C to quit
 ```
+
+### UI Components
+
+- **Device Info Panel** - Shows device ID, package name, PID, thread count, and current time
+- **CPU Gauge** - Visual gauge (green/yellow/red based on usage thresholds)
+- **Memory Stats Panel** - Current memory values in KB/MB/GB format
+- **CPU History Chart** - Yellow line chart showing CPU % over last 60 data points
+- **Memory History Chart** - Multi-line chart with color-coded memory metrics:
+  - **Cyan** - Total PSS (overall memory footprint)
+  - **Red** - Private Dirty (modified private memory)
+  - **Yellow** - Native Heap (C/C++ allocations)
+  - **Green** - Dalvik Heap (Java/Kotlin objects)
 
 ## Memory Metrics Explained
 
@@ -210,12 +238,26 @@ npm start -- -p com.somewearlabs.atakplugin -i 1000
 
 ## Development
 
-The monitor is a single-file Node.js application with minimal dependencies:
+The monitor is a single-file Node.js application built with:
 
-- **chalk** - Terminal colors and formatting
+- **blessed** - Terminal UI framework for creating rich interfaces
+- **blessed-contrib** - Graphs, gauges, and advanced widgets for blessed
 - **commander** - CLI argument parsing
+- **chalk** - Terminal colors (for error messages)
 
-To modify refresh behavior, edit the `interval` parameter or adjust the `monitorLoop` function in `index.js`.
+### Architecture
+
+- `AndroidMonitor` class handles all ADB communication and data collection
+- Historical data tracking keeps last 60 data points (configurable via `maxDataPoints`)
+- UI updates on every monitoring interval
+- Charts automatically scale and scroll with data
+
+### Customization
+
+- Modify `maxDataPoints` in the constructor to keep more/less history
+- Adjust grid layout in `createUI()` to change panel sizes
+- Change color schemes in widget style properties
+- Add new metrics by extending `getMemoryStats()` or `getCpuStats()`
 
 ## License
 

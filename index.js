@@ -65,41 +65,58 @@ class AndroidMonitor {
     return stats;
   }
 
+  stripAnsiCodes(str) {
+    // Remove ANSI escape codes
+    return str.replace(/\x1B\[[0-9;]*[mKHJsu]/g, '').replace(/\x1B\[[0-9;]*[A-Za-z]/g, '');
+  }
+
   async getCpuStats() {
     const output = await this.executeAdb(`shell top -n 1 -m 100`);
 
-    const lines = output.split('\n');
-    const packageLine = lines.find(line => line.includes(this.packageName));
+    // Strip ANSI codes from entire output
+    const cleanOutput = this.stripAnsiCodes(output);
+    const lines = cleanOutput.split('\n');
+
+    // Find line matching package name (handle truncated names with +)
+    const packageLine = lines.find(line => {
+      const cleanLine = line.trim();
+      // Match exact package name or truncated version with +
+      return cleanLine.includes(this.packageName) ||
+             (this.packageName.length > 15 && cleanLine.includes(this.packageName.substring(0, 15) + '+'));
+    });
 
     if (!packageLine) {
-      return { cpu: 0, threads: 0, timestamp: new Date() };
+      return { cpu: 0, timestamp: new Date() };
     }
 
-    // Parse top output (format varies by Android version)
-    // Common format: PID USER PR NI VIRT RES SHR S[%CPU] %MEM TIME+ ARGS
+    // Find header line to determine column positions
+    const headerLine = lines.find(line => line.includes('PID') && line.includes('CPU'));
+
+    if (!headerLine) {
+      return { cpu: 0, timestamp: new Date() };
+    }
+
+    // Parse header to find CPU column index
+    // Header format: PID USER PR NI VIRT RES SHR S[%CPU] %MEM TIME+ ARGS
+    const headers = headerLine.trim().split(/\s+/);
+    let cpuIndex = headers.findIndex(h => h.includes('CPU') || h.includes('S[%CPU]'));
+
+    // Parse data line
     const parts = packageLine.trim().split(/\s+/);
 
-    let cpuIndex = -1;
-    const headerLine = lines.find(line => line.includes('PID') || line.includes('%CPU'));
-    if (headerLine) {
-      const headers = headerLine.trim().split(/\s+/);
-      cpuIndex = headers.findIndex(h => h.includes('CPU'));
-    }
-
-    // Try to find CPU percentage (usually around index 8-9)
     let cpu = 0;
-    if (cpuIndex > 0 && parts[cpuIndex]) {
-      cpu = parseFloat(parts[cpuIndex].replace('%', '')) || 0;
+
+    if (cpuIndex >= 0 && cpuIndex < parts.length) {
+      // Try to parse the CPU value at the found index
+      const cpuValue = parts[cpuIndex].replace(/[%\[\]]/g, '');
+      cpu = parseFloat(cpuValue) || 0;
     } else {
-      // Fallback: look for percentage values
-      for (let i = 0; i < parts.length; i++) {
-        if (parts[i].includes('%') || (!isNaN(parseFloat(parts[i])) && parseFloat(parts[i]) < 100)) {
-          const val = parseFloat(parts[i].replace('%', ''));
-          if (!isNaN(val) && val >= 0 && val <= 100) {
-            cpu = val;
-            break;
-          }
-        }
+      // Fallback: CPU is typically at index 8 in standard Android top output
+      // Format: PID USER PR NI VIRT RES SHR S[%CPU] %MEM TIME+ ARGS
+      //         0   1    2  3  4    5   6   7 8      9    10    11+
+      if (parts.length > 8) {
+        const cpuValue = parts[8].replace(/[%\[\]]/g, '');
+        cpu = parseFloat(cpuValue) || 0;
       }
     }
 
